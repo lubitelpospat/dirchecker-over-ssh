@@ -125,7 +125,7 @@ parser.add_argument("REMOTE_DIR", help="directory on the remote server")
 
 # Optional arguments
 parser.add_argument("-p", "--pattern", default="*", help="run(sample) directory pattern")
-parser.add_argument("-n", "--n-jobs", help="Number of concurrent sha256 jobs that will be executed ", default=10)
+parser.add_argument("-n", "--n-jobs", help="Number of concurrent sha256 jobs that will be executed ", default=10, dest='n')
 args = parser.parse_args()
 
 
