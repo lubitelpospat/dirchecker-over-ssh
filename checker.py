@@ -8,7 +8,11 @@ import sys
 import pathlib
 import subprocess
 import hashlib
+import colorama
+from colorama import Fore
 
+
+colorama.init(autoreset=True)
 
 
 parser = argparse.ArgumentParser(
@@ -17,9 +21,9 @@ parser = argparse.ArgumentParser(
 
 
 # Required arguments
-parser.add_argument("BASE_DIR")
-parser.add_argument("REMOTE_HOST")
-parser.add_argument("REMOTE_DIR")
+parser.add_argument("BASE_DIR", help="Local directory")
+parser.add_argument("REMOTE_HOST", help="ssh-style remote user and host name, e.g. john@google.com")
+parser.add_argument("REMOTE_DIR", help="directory on the remote server")
 
 
 # Optional arguments
@@ -46,7 +50,7 @@ with  fabric.Connection(host=args.REMOTE_HOST, connect_kwargs={"password": passw
    
 
     if len(localdirs_present_on_remote_server) == 0:
-        print(f"No directories in {args.BASE_DIR} found in {args.REMOTE_HOST}:{args.REMOTE_DIR}")
+        print(Fore.RED + f"No directories in {args.BASE_DIR} found in {args.REMOTE_HOST}:{args.REMOTE_DIR}")
     else:
         if len(localdirs_present_on_remote_server) == 1:
             print(f"1 local directory found on remote, need to compare hashes:")
@@ -54,15 +58,14 @@ with  fabric.Connection(host=args.REMOTE_HOST, connect_kwargs={"password": passw
         else:    
             print(f"Need to compare hashes of {len(localdirs_present_on_remote_server)} directories:")
             print(",".join(localdirs_present_on_remote_server))
-        for d in tqdm.tqdm(localdirs_present_on_remote_server): 
-            hashes_command = conn.run(f"find {args.REMOTE_DIR}/{d}  -type f \( -name '*.fastq.gz' -o -name '*.fastq' -o -name '*.fast5' \) | head -n 10 | parallel -j10 sha256sum | awk '{{print $1}}'", hide='both')
+        for d in tqdm.tqdm(localdirs_present_on_remote_server, total=len(localdirs_present_on_remote_server)): 
+            hashes_command = conn.run(f"find {args.REMOTE_DIR}/{d}  -type f \( -name '*.fastq.gz' -o -name '*.fastq' -o -name '*.fast5' \) |  parallel -j10 sha256sum | awk '{{print $1}}' | sort", hide='both')
             hashes = "#".join(sorted(hashes_command.stdout.strip().split("\n")))
             local_hashes_command = subprocess.run(
-                f"find {args.BASE_DIR}/  -type f \( -name '*.fastq.gz' -o -name '*.fastq' -o -name '*.fast5' \)| head -n 10 | parallel -j10 sha256sum | awk '{{print $1}}'", 
+                f"find {args.BASE_DIR}/{d}  -type f \( -name '*.fastq.gz' -o -name '*.fastq' -o -name '*.fast5' -o -name '*.csv' \)|  parallel -j10 sha256sum | awk '{{print $1}}' | sort", 
                                                   capture_output=True, 
                                                   shell=True)
-            local_hashes = "#".join(sorted(str(local_hashes_command.stdout, encoding="utf-8").split("\n")))
-
+            local_hashes = "#".join(sorted(str(local_hashes_command.stdout.strip(), encoding="utf-8").split("\n")))
             remote_hash = hashlib.sha256()
             remote_hash.update(str.encode(hashes))
             local_hash = hashlib.sha256()
@@ -76,8 +79,14 @@ with  fabric.Connection(host=args.REMOTE_HOST, connect_kwargs={"password": passw
 
     
 if len(nonmatching_dirs) == 0:
-    print("All local directories are found remotely")
+    if (len(matching_dirs) > 0) and (len(matching_dirs) == len(localdirs_present_on_remote_server)):
+        print(Fore.GREEN + "All local directories are found remotely")
 
-else:
-    print(f"{len(nonmatching_dirs)} are not complete on remote destination:")
+elif len(nonmatching_dirs) > 0:
+    print(Fore.RED + f"{len(nonmatching_dirs)} are not complete on remote destination:")
     print("\n".join(nonmatching_dirs))
+
+
+if len(matching_dirs) > 0:
+    print(Fore.GREEN + "You can safely delete the following directories:")
+    print("\n".join(matching_dirs))
