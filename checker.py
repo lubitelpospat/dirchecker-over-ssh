@@ -142,7 +142,7 @@ with  fabric.Connection(host=args.REMOTE_HOST, connect_kwargs={"password": PASSW
     localdirs = list(map(lambda x: x.name,pathlib.Path(args.BASE_DIR).glob(args.pattern))) #directories on local host in REMOTE_HOST
     localdirs_present_on_remote_server = set(localdirs).intersection(set(dirnames))
     localdirs_not_found_on_remote_server = set(localdirs).difference(set(dirnames))
-    print(f"{len(localdirs_not_found_on_remote_server)} folder(s) not found on remote server: {','.join(localdirs_not_found_on_remote_server)}")
+    print(Fore.RED + f"{len(localdirs_not_found_on_remote_server)} folder(s) not found on remote server: {','.join(localdirs_not_found_on_remote_server)}")
    
 
     if len(localdirs_present_on_remote_server) == 0:
