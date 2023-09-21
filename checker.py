@@ -39,7 +39,6 @@ class TaskResult:
 def process_local_task(base_dir:str, dirname:str)->str:
     #computes hash locally
 
-
     # compute hash for all fastq, fastq,gz, fast5 and csv files, sort them (for reproducibility)
     local_hashes_command = subprocess.run(
                 f"find {base_dir}/{dirname}  -type f \( -name '*.fastq.gz' -o -name '*.fastq' -o -name '*.fast5' -o -name '*.csv' \)|  parallel -j10 sha256sum | awk '{{print $1}}' | sort", 
@@ -126,6 +125,8 @@ parser.add_argument("REMOTE_DIR", help="directory on the remote server")
 # Optional arguments
 parser.add_argument("-p", "--pattern", default="*", help="run(sample) directory pattern")
 parser.add_argument("-n", "--n-jobs", help="Number of concurrent sha256 jobs that will be executed ", default=10, dest='n')
+parser.add_argument("-i", "--ignore", type=str, dest="ignore", help="directories to ignore", default="")
+
 args = parser.parse_args()
 
 
@@ -137,9 +138,10 @@ with  fabric.Connection(host=args.REMOTE_HOST, connect_kwargs={"password": PASSW
     if not sample_dirs.ok:
         print(f"Failed to list directories in {args.REMOTE_DIR}")
         sys.exit(1)
-
+    if len(args.ignore) > 0:
+        dirs_to_ignore = set(args.ignore.strip().split(","))
     dirnames = sample_dirs.stdout.strip().split() # directories on remote host in REMOTE_DIR
-    localdirs = list(map(lambda x: x.name,pathlib.Path(args.BASE_DIR).glob(args.pattern))) #directories on local host in REMOTE_HOST
+    localdirs = list(filter(lambda x: not (x in dirs_to_ignore), map(lambda x: x.name,pathlib.Path(args.BASE_DIR).glob(args.pattern)))) #directories on local host in REMOTE_HOST
     localdirs_present_on_remote_server = set(localdirs).intersection(set(dirnames))
     localdirs_not_found_on_remote_server = set(localdirs).difference(set(dirnames))
     print(Fore.RED + f"{len(localdirs_not_found_on_remote_server)} folder(s) not found on remote server: {','.join(localdirs_not_found_on_remote_server)}")
